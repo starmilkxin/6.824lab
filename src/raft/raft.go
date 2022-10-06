@@ -217,7 +217,6 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.applyChan <- applyMsg
 		fmt.Printf("leader:[%v] peer:[%v] apply ok! logs' max index is [%v] rf.commitIndex is [%v] applyMsg is [%+v] \n", args.LeaderId, rf.me, len(rf.logs)-1, rf.commitIndex, applyMsg)
 	}
-
 	return
 }
 
@@ -563,8 +562,7 @@ func (rf *Raft) killed() bool {
 // Make() must return quickly, so it should start goroutines
 // for any long-running work.
 //
-func Make(peers []*labrpc.ClientEnd, me int,
-	persister *Persister, applyCh chan ApplyMsg) *Raft {
+func Make(peers []*labrpc.ClientEnd, me int, persister *Persister, applyCh chan ApplyMsg) *Raft {
 	rf := &Raft{}
 	rf.peers = peers
 	rf.persister = persister
