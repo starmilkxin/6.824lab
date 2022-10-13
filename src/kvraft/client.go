@@ -3,10 +3,14 @@ package kvraft
 import "../labrpc"
 import "crypto/rand"
 import "math/big"
+import mathrand "math/rand"
 
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+	seqId    int
+	clientId int64
+	leaderId int
 }
 
 func nrand() int64 {
@@ -20,6 +24,8 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// You'll have to add code here.
+	ck.clientId = nrand()
+	ck.leaderId = mathrand.Intn(len(ck.servers))
 	return ck
 }
 
@@ -36,9 +42,32 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 // arguments. and reply must be passed as a pointer.
 //
 func (ck *Clerk) Get(key string) string {
-
 	// You will have to modify this function.
-	return ""
+	ck.seqId++
+	args := GetArgs{
+		Key:      key,
+		ClientId: ck.clientId,
+		SeqId:    ck.seqId,
+	}
+	serverId := ck.leaderId
+	for {
+		reply := GetReply{}
+		ok := ck.servers[serverId].Call("KVServer.Get", &args, &reply)
+		if ok {
+			if reply.Err == ErrNoKey {
+				ck.leaderId = serverId
+				return ""
+			} else if reply.Err == OK {
+				ck.leaderId = serverId
+				return reply.Value
+			} else if reply.Err == ErrWrongLeader {
+				serverId = (serverId + 1) % len(ck.servers)
+				continue
+			}
+		}
+		// 节点发生crash等原因
+		serverId = (serverId + 1) % len(ck.servers)
+	}
 }
 
 //
@@ -53,6 +82,28 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+	ck.seqId++
+	args := PutAppendArgs{
+		Key:   key,
+		Value: value,
+		Op:    op,
+	}
+	serverId := ck.leaderId
+	for {
+		reply := PutAppendReply{}
+		ok := ck.servers[serverId].Call("KVServer.PutAppend", &args, &reply)
+		if ok {
+			if reply.Err == OK {
+				ck.leaderId = serverId
+				return
+			} else if reply.Err == ErrWrongLeader {
+				serverId = (serverId + 1) % len(ck.servers)
+				continue
+			}
+		}
+		// 节点发生crash等原因
+		serverId = (serverId + 1) % len(ck.servers)
+	}
 }
 
 func (ck *Clerk) Put(key string, value string) {
